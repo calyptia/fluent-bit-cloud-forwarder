@@ -111,7 +111,9 @@ func (fd *Forwarder) fluentBitMetricsToCloudMetrics(metrics fluentbit.Metrics) c
 	if fd.nowFunc == nil {
 		fd.nowFunc = time.Now
 	}
-	ts := fd.nowFunc().UnixNano()
+
+	// TODO: change to unix nano once the Cloud API is fixed.
+	ts := fd.nowFunc().Unix()
 
 	for metricName, metric := range metrics.Input {
 		out.Metrics = append(out.Metrics, cloud.AddMetricInput{
