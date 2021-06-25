@@ -10,10 +10,8 @@ import (
 )
 
 func Test_fluentBitMetricsToCloudMetrics(t *testing.T) {
-	now := time.Now().Truncate(time.Second)
-
-	// TODO: change to unix nano once the Cloud API is fixed.
-	ts := now.Unix()
+	now := time.Now().Truncate(time.Nanosecond)
+	ts := now.UnixNano()
 
 	tt := []struct {
 		name string
