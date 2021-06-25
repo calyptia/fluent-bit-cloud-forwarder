@@ -2,6 +2,7 @@ package forwarder
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -47,7 +48,7 @@ func (fd *Forwarder) Errs() <-chan error {
 func (fd *Forwarder) Forward(ctx context.Context) error {
 	buildInfo, err := fd.FluentBitClient.BuildInfo(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not fetch fluent bit build info: %w", err)
 	}
 
 	agent, err := fd.CloudClient.CreateAgent(ctx, cloud.CreateAgentInput{
@@ -62,7 +63,7 @@ func (fd *Forwarder) Forward(ctx context.Context) error {
 	// TODO: better error handling. Create agent, only if not created already.
 	// Otherwise upsert it.
 	if err != nil {
-		return err
+		return fmt.Errorf("could not create agent: %w", err)
 	}
 
 	ticker := time.NewTicker(fd.Interval)
@@ -79,7 +80,7 @@ loop:
 
 				metrics, err := fd.FluentBitClient.Metrics(ctx)
 				if err != nil {
-					fd.errChan <- err
+					fd.errChan <- fmt.Errorf("could not fetch fluent bit metrics: %w", err)
 					return
 				}
 
@@ -88,7 +89,7 @@ loop:
 					fd.fluentBitMetricsToCloudMetrics(metrics),
 				)
 				if err != nil {
-					fd.errChan <- err
+					fd.errChan <- fmt.Errorf("could not push metric to cloud: %w", err)
 				}
 			}()
 		}

@@ -20,11 +20,16 @@ type Client struct {
 }
 
 type Errors struct {
-	StatusCode int      `json:"-"`
+	StatusCode int      `json:"status,omitempty"`
+	Msg        string   `json:"message"`
 	Errs       []string `json:"errors"`
 }
 
 func (e *Errors) Error() string {
+	if e.Msg != "" {
+		return e.Msg
+	}
+
 	if len(e.Errs) == 0 {
 		return ""
 	}
