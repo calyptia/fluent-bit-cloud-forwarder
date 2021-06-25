@@ -238,7 +238,7 @@ func (c *Client) AddMetrics(ctx context.Context, agentID string, in AddMetricsIn
 		return fmt.Errorf("could not json marshal add agent metric input: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, c.BaseURL+"/api/v1/agent/"+url.PathEscape(agentID)+"/metric", bytes.NewReader(b))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/api/v1/agent/"+url.PathEscape(agentID)+"/metric", bytes.NewReader(b))
 	if err != nil {
 		return fmt.Errorf("could not create request to add agent metric: %w", err)
 	}
