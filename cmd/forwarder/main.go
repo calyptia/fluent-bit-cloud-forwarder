@@ -36,11 +36,12 @@ func main() {
 
 func run(ctx context.Context, logger log.Logger, args []string) error {
 	var (
-		agentURL string
-		interval time.Duration
-		cloudURL string
-		apiKey   string
-		hostname string
+		agentURL            string
+		interval            time.Duration
+		cloudURL            string
+		apiKey              string
+		hostname            string
+		agentConfigFilepath string
 	)
 	fs := flag.NewFlagSet("forwarder", flag.ExitOnError)
 	fs.StringVar(&agentURL, "agent", "http://localhost:2020", "Fluent Bit agent URL")
@@ -48,6 +49,7 @@ func run(ctx context.Context, logger log.Logger, args []string) error {
 	fs.StringVar(&cloudURL, "cloud", "http://localhost:8080", "Calyptia Cloud API URL")
 	fs.StringVar(&apiKey, "api-key", "", "Calyptia Cloud API key")
 	fs.StringVar(&hostname, "hostname", os.Getenv("HOSTNAME"), "Agent hostname. If empty, a random one will be generated")
+	fs.StringVar(&agentConfigFilepath, "agent-config", "", "Agent config file path. This file contents will be pushed into Cloud")
 	fs.Usage = func() {
 		fmt.Printf("Forwards metrics from Fluent Bit agent to Calyptia Cloud.\nIt stores some persisted data about Cloud registration at %q directory.\n", diskvBasePath)
 		fmt.Println("Flags:")
@@ -72,14 +74,25 @@ func run(ctx context.Context, logger log.Logger, args []string) error {
 		)
 	}
 
+	var rawConfig string
+	if agentConfigFilepath != "" {
+		b, err := os.ReadFile(agentConfigFilepath)
+		if err != nil {
+			return fmt.Errorf("could not open %q: %w", agentConfigFilepath, err)
+		}
+
+		rawConfig = string(b)
+	}
+
 	kv := diskv.New(diskv.Options{
 		BasePath: diskvBasePath,
 	})
 
 	fd := forwarder.Forwarder{
-		Hostname: hostname,
-		Store:    kv,
-		Interval: interval,
+		Hostname:  hostname,
+		RawConfig: rawConfig,
+		Store:     kv,
+		Interval:  interval,
 		FluentBitClient: &fluentbit.Client{
 			HTTPClient: http.DefaultClient,
 			BaseURL:    agentURL,

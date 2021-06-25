@@ -13,6 +13,7 @@ import (
 
 type Forwarder struct {
 	Hostname        string
+	RawConfig       string
 	Store           Store
 	Interval        time.Duration
 	FluentBitClient FluentBitClient
@@ -56,7 +57,8 @@ func (fd *Forwarder) Forward(ctx context.Context) error {
 	}
 
 	agent, err := fd.CloudClient.CreateAgent(ctx, cloud.CreateAgentInput{
-		Name: fd.Hostname,
+		Name:   fd.Hostname,
+		Config: fd.RawConfig,
 		Metadata: cloud.AgentMetadata{
 			Version: buildInfo.FluentBit.Version,
 			Edition: buildInfo.FluentBit.Edition,

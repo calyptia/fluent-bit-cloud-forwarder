@@ -2,6 +2,10 @@
 
 Forwards metrics from Fluent Bit to Calyptia Cloud.
 
+## Releases
+
+[Check the releases page](https://github.com/calyptia/fluent-bit-cloud-forwarder/releases).
+
 ## Build instrutions
 
 ```
@@ -20,6 +24,8 @@ It stores some persisted data about Cloud registration at "diskv-data" directory
 Flags:
   -agent string
         Fluent Bit agent URL (default "http://localhost:2020")
+  -agent-config string
+        Agent config file path. This file contents will be pushed into Cloud
   -api-key string
         Calyptia Cloud API key
   -cloud string
