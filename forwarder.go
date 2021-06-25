@@ -42,6 +42,10 @@ type CloudClient interface {
 }
 
 func (fd *Forwarder) Errs() <-chan error {
+	if fd.errChan == nil {
+		fd.errChan = make(chan error)
+	}
+
 	return fd.errChan
 }
 
@@ -67,6 +71,9 @@ func (fd *Forwarder) Forward(ctx context.Context) error {
 	}
 
 	ticker := time.NewTicker(fd.Interval)
+	if fd.errChan == nil {
+		fd.errChan = make(chan error)
+	}
 
 loop:
 	for {
