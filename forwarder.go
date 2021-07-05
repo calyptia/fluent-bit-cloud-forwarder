@@ -3,6 +3,7 @@ package forwarder
 import (
 	"context"
 	"fmt"
+	"github.com/calyptia/cmetrics-go"
 	"strconv"
 	"strings"
 	"time"
@@ -38,7 +39,7 @@ type CloudClient interface {
 	CreateAgent(ctx context.Context, in cloud.CreateAgentInput) (cloud.Agent, error)
 	Agent(ctx context.Context, agentID string) (cloud.Agent, error)
 	UpsertAgent(ctx context.Context, agentID string, in cloud.UpsertAgentInput) (cloud.Agent, error)
-	AddMetrics(ctx context.Context, agentID string, in cloud.AddMetricsInput) error
+	AddMetrics(ctx context.Context, agentID string, msgPackEncoded []byte) error
 }
 
 func (fd *Forwarder) Errs() <-chan error {
@@ -91,10 +92,12 @@ loop:
 					return
 				}
 
-				err = fd.CloudClient.AddMetrics(ctx,
-					strconv.FormatInt(int64(agent.ID), 10),
-					fd.fluentBitMetricsToCloudMetrics(metrics),
-				)
+				msgPackEncoded, err := fd.fluentBitMetricsToCMetrics(&metrics)
+				if err != nil {
+					fd.errChan <- err
+				}
+
+				err = fd.CloudClient.AddMetrics(ctx, strconv.FormatInt(int64(agent.ID), 10), msgPackEncoded)
 				if err != nil {
 					fd.errChan <- fmt.Errorf("could not push metric to cloud: %w", err)
 				}
@@ -105,105 +108,81 @@ loop:
 	return nil
 }
 
-func (fd *Forwarder) fluentBitMetricsToCloudMetrics(metrics fluentbit.Metrics) cloud.AddMetricsInput {
-	var out cloud.AddMetricsInput
-
+func (fd *Forwarder) fluentBitMetricsToCMetrics(metrics *fluentbit.Metrics) ([]byte, error) {
 	if fd.nowFunc == nil {
 		fd.nowFunc = time.Now
 	}
-	ts := fd.nowFunc().UnixNano()
+
+	ts := fd.nowFunc()
+
+	metricsContext, err := cmetrics.NewContext()
+	if err != nil {
+		return nil, err
+	}
+
+	defer metricsContext.Destroy()
 
 	for metricName, metric := range metrics.Input {
-		out.Metrics = append(out.Metrics, cloud.AddMetricInput{
-			Type: cloud.MetricTypeCounter,
-			Options: cloud.MetricOpts{
-				Namespace: "input",
-				Subsystem: metricName,
-				Name:      "records",
-				FQName:    strings.Join([]string{"input", metricName, "records"}, "."),
-			},
-			Values: []cloud.MetricValue{{
-				Timestamp: ts,
-				Value:     float64(metric.Records),
-			}},
-		}, cloud.AddMetricInput{
-			Type: cloud.MetricTypeCounter,
-			Options: cloud.MetricOpts{
-				Namespace: "input",
-				Subsystem: metricName,
-				Name:      "bytes",
-				FQName:    strings.Join([]string{"input", metricName, "bytes"}, "."),
-			},
-			Values: []cloud.MetricValue{{
-				Timestamp: ts,
-				Value:     float64(metric.Bytes),
-			}},
-		})
+		counter, err := metricsContext.CounterCreate("fluentbit", "input", "records", "records", []string{"plugin"})
+		if err != nil {
+			return nil, err
+		}
+		err = counter.Set(ts, float64(metric.Records), []string{metricName})
+		if err != nil {
+			return nil, err
+		}
+		counter, err = metricsContext.CounterCreate("fluentbit", "input", "bytes", "bytes", []string{"plugin"})
+		if err != nil {
+			return nil, err
+		}
+		err = counter.Set(ts, float64(metric.Bytes), []string{metricName})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	for metricName, metric := range metrics.Output {
-		out.Metrics = append(out.Metrics, cloud.AddMetricInput{
-			Type: cloud.MetricTypeCounter,
-			Options: cloud.MetricOpts{
-				Namespace: "output",
-				Subsystem: metricName,
-				Name:      "proc_records",
-				FQName:    strings.Join([]string{"output", metricName, "proc_records"}, "."),
-			},
-			Values: []cloud.MetricValue{{
-				Timestamp: ts,
-				Value:     float64(metric.ProcRecords),
-			}},
-		}, cloud.AddMetricInput{
-			Type: cloud.MetricTypeCounter,
-			Options: cloud.MetricOpts{
-				Namespace: "output",
-				Subsystem: metricName,
-				Name:      "proc_bytes",
-				FQName:    strings.Join([]string{"output", metricName, "proc_bytes"}, "."),
-			},
-			Values: []cloud.MetricValue{{
-				Timestamp: ts,
-				Value:     float64(metric.ProcBytes),
-			}},
-		}, cloud.AddMetricInput{
-			Type: cloud.MetricTypeCounter,
-			Options: cloud.MetricOpts{
-				Namespace: "output",
-				Subsystem: metricName,
-				Name:      "errors",
-				FQName:    strings.Join([]string{"output", metricName, "errors"}, "."),
-			},
-			Values: []cloud.MetricValue{{
-				Timestamp: ts,
-				Value:     float64(metric.Errors),
-			}},
-		}, cloud.AddMetricInput{
-			Type: cloud.MetricTypeCounter,
-			Options: cloud.MetricOpts{
-				Namespace: "output",
-				Subsystem: metricName,
-				Name:      "retries",
-				FQName:    strings.Join([]string{"output", metricName, "retries"}, "."),
-			},
-			Values: []cloud.MetricValue{{
-				Timestamp: ts,
-				Value:     float64(metric.Retries),
-			}},
-		}, cloud.AddMetricInput{
-			Type: cloud.MetricTypeCounter,
-			Options: cloud.MetricOpts{
-				Namespace: "output",
-				Subsystem: metricName,
-				Name:      "retries_failed",
-				FQName:    strings.Join([]string{"output", metricName, "retries_failed"}, "."),
-			},
-			Values: []cloud.MetricValue{{
-				Timestamp: ts,
-				Value:     float64(metric.RetriesFailed),
-			}},
-		})
+		counter, err := metricsContext.CounterCreate("fluentbit", "output", "proc_records", "proc_records", []string{"plugin"})
+		if err != nil {
+			return nil, err
+		}
+		err = counter.Set(ts, float64(metric.ProcRecords), []string{metricName})
+		if err != nil {
+			return nil, err
+		}
+		counter, err = metricsContext.CounterCreate("fluentbit", "output", "proc_bytes", "proc_bytes", []string{"plugin"})
+		if err != nil {
+			return nil, err
+		}
+		err = counter.Set(ts, float64(metric.ProcBytes), []string{metricName})
+		if err != nil {
+			return nil, err
+		}
+		counter, err = metricsContext.CounterCreate("fluentbit", "output", "errors", "errors", []string{"plugin"})
+		if err != nil {
+			return nil, err
+		}
+		err = counter.Set(ts, float64(metric.Errors), []string{metricName})
+		if err != nil {
+			return nil, err
+		}
+		counter, err = metricsContext.CounterCreate("fluentbit", "output", "retries", "retries", []string{"plugin"})
+		if err != nil {
+			return nil, err
+		}
+		err = counter.Set(ts, float64(metric.Retries), []string{metricName})
+		if err != nil {
+			return nil, err
+		}
+		counter, err = metricsContext.CounterCreate("fluentbit", "output", "retries_failed", "retries_failed", []string{"plugin"})
+		if err != nil {
+			return nil, err
+		}
+		err = counter.Set(ts, float64(metric.RetriesFailed), []string{metricName})
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return out
+	return metricsContext.EncodeMsgPack()
 }

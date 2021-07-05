@@ -232,17 +232,13 @@ func (c *Client) UpsertAgent(ctx context.Context, agentID string, in UpsertAgent
 	return out, nil
 }
 
-func (c *Client) AddMetrics(ctx context.Context, agentID string, in AddMetricsInput) error {
-	b, err := json.Marshal(in)
-	if err != nil {
-		return fmt.Errorf("could not json marshal add agent metric input: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/api/v1/agent/"+url.PathEscape(agentID)+"/metric", bytes.NewReader(b))
+func (c *Client) AddMetrics(ctx context.Context, agentID string, msgPackEncoded []byte) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/api/v1/agent/"+url.PathEscape(agentID)+"/metric", bytes.NewReader(msgPackEncoded))
 	if err != nil {
 		return fmt.Errorf("could not create request to add agent metric: %w", err)
 	}
 
+	req.Header.Set("content-type", "cmetrics/encoded")
 	req.Header.Set(apiKeyHeader, c.APIKey)
 
 	resp, err := c.HTTPClient.Do(req)
