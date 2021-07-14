@@ -1,23 +1,28 @@
 package forwarder
 
 import (
+	"bytes"
 	"context"
+	"encoding/gob"
 	"fmt"
-	"github.com/calyptia/cmetrics-go"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/calyptia/fluent-bit-cloud-forwarder/cloud"
+	"github.com/calyptia/cloud"
+	"github.com/calyptia/cmetrics-go"
 	fluentbit "github.com/calyptia/go-fluent-bit-metrics"
+	"github.com/go-kit/log"
 )
 
 type Forwarder struct {
 	Hostname        string
+	MachineID       string
+	RawConfig       string
 	Store           Store
 	Interval        time.Duration
 	FluentBitClient FluentBitClient
 	CloudClient     CloudClient
+	Logger          log.Logger
 
 	errChan chan error
 	nowFunc func() time.Time
@@ -36,10 +41,10 @@ type FluentBitClient interface {
 }
 
 type CloudClient interface {
-	CreateAgent(ctx context.Context, in cloud.CreateAgentInput) (cloud.Agent, error)
-	Agent(ctx context.Context, agentID string) (cloud.Agent, error)
-	UpsertAgent(ctx context.Context, agentID string, in cloud.UpsertAgentInput) (cloud.Agent, error)
-	AddMetrics(ctx context.Context, agentID string, msgPackEncoded []byte) error
+	SetAgentToken(token string)
+	CreateAgent(ctx context.Context, payload cloud.CreateAgentPayload) (cloud.CreatedAgentPayload, error)
+	UpdateAgent(ctx context.Context, agentID string, in cloud.UpdateAgentOpts) error
+	AddAgentMetrics(ctx context.Context, agentID string, msgPackEncoded []byte) (cloud.CreatedAgentMetrics, error)
 }
 
 func (fd *Forwarder) Errs() <-chan error {
@@ -50,26 +55,74 @@ func (fd *Forwarder) Errs() <-chan error {
 	return fd.errChan
 }
 
+type StorePayload struct {
+	AgentID    string
+	AgentToken string
+	AgentName  string
+}
+
 func (fd *Forwarder) Forward(ctx context.Context) error {
 	buildInfo, err := fd.FluentBitClient.BuildInfo(ctx)
 	if err != nil {
 		return fmt.Errorf("could not fetch fluent bit build info: %w", err)
 	}
 
-	agent, err := fd.CloudClient.CreateAgent(ctx, cloud.CreateAgentInput{
-		Name: fd.Hostname,
-		Metadata: cloud.AgentMetadata{
-			Version: buildInfo.FluentBit.Version,
-			Edition: buildInfo.FluentBit.Edition,
-			Type:    cloud.AgentMetadataTypeFluentBit,
-			Flags:   strings.Join(buildInfo.FluentBit.Flags, ","),
-		},
-	})
-	// TODO: better error handling. Create agent, only if not created already.
-	// Otherwise upsert it.
-	if err != nil {
-		return fmt.Errorf("could not create agent: %w", err)
+	var payload StorePayload
+	if fd.Store.Has(fd.MachineID) {
+		b, err := fd.Store.Read(fd.MachineID)
+		if err != nil {
+			return fmt.Errorf("could not read from store: %w", err)
+		}
+
+		err = gob.NewDecoder(bytes.NewReader(b)).Decode(&payload)
+		if err != nil {
+			return fmt.Errorf("could not decode store payload: %w", err)
+		}
+
+		edition := cloud.AgentEdition(buildInfo.FluentBit.Edition)
+		err = fd.CloudClient.UpdateAgent(ctx, payload.AgentID, cloud.UpdateAgentOpts{
+			Name:      &fd.Hostname,
+			Version:   &buildInfo.FluentBit.Version,
+			Edition:   &edition,
+			Flags:     &buildInfo.FluentBit.Flags,
+			RawConfig: &fd.RawConfig,
+		})
+		if err != nil {
+			return fmt.Errorf("could not update agent: %w", err)
+		}
+	} else {
+		createdAgent, err := fd.CloudClient.CreateAgent(ctx, cloud.CreateAgentPayload{
+			Name:      fd.Hostname,
+			MachineID: fd.MachineID,
+			Type:      cloud.AgentTypeFluentBit,
+			Version:   buildInfo.FluentBit.Version,
+			Edition:   cloud.AgentEdition(strings.ToLower(buildInfo.FluentBit.Edition)),
+			Flags:     buildInfo.FluentBit.Flags,
+			RawConfig: fd.RawConfig,
+		})
+		if err != nil {
+			return fmt.Errorf("could not create agent: %w", err)
+		}
+
+		payload.AgentID = createdAgent.ID
+		payload.AgentToken = createdAgent.Token
+		payload.AgentName = createdAgent.Name
+
+		buff := &bytes.Buffer{}
+		err = gob.NewEncoder(buff).Encode(payload)
+		if err != nil {
+			return fmt.Errorf("could not encode store payload: %w", err)
+		}
+
+		fd.Store.Write(fd.MachineID, buff.Bytes())
 	}
+
+	_ = fd.Logger.Log(
+		"agent_id", payload.AgentID,
+		"agent_token", payload.AgentToken,
+		"agent_name", payload.AgentName,
+	)
+	fd.CloudClient.SetAgentToken(payload.AgentToken)
 
 	ticker := time.NewTicker(fd.Interval)
 	if fd.errChan == nil {
@@ -94,10 +147,10 @@ loop:
 
 				msgPackEncoded, err := fd.fluentBitMetricsToCMetrics(&metrics)
 				if err != nil {
-					fd.errChan <- err
+					fd.errChan <- fmt.Errorf("could not transform fluentbit metrics into cmetrics msgpack")
 				}
 
-				err = fd.CloudClient.AddMetrics(ctx, strconv.FormatInt(int64(agent.ID), 10), msgPackEncoded)
+				_, err = fd.CloudClient.AddAgentMetrics(ctx, payload.AgentID, msgPackEncoded)
 				if err != nil {
 					fd.errChan <- fmt.Errorf("could not push metric to cloud: %w", err)
 				}

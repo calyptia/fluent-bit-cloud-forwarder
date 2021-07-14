@@ -1,5 +1,8 @@
 name: Go
 
+env:
+  GOPRIVATE: "github.com/calyptia/cloud"
+
 on:
   push:
     branches: [main]

@@ -20,12 +20,16 @@ It stores some persisted data about Cloud registration at "diskv-data" directory
 Flags:
   -agent string
         Fluent Bit agent URL (default "http://localhost:2020")
-  -api-key string
-        Calyptia Cloud API key
   -cloud string
-        Calyptia Cloud API URL (default "http://localhost:8080")
+        Calyptia Cloud API URL (default "http://localhost:5000")
+  -config string
+        Fluentbit config file
   -hostname string
         Agent hostname. If empty, a random one will be generated
   -interval duration
         Interval to pull Fluent Bit agent and forward metrics to Cloud (default 5s)
+  -machine-id string
+        Machine ID. If empty, a random one will be generated
+  -project-token string
+        Project token from Calyptia Cloud fetched from "POST /api/v1/tokens" or from "GET /api/v1/tokens?last=1"
 ```
