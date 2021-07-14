@@ -1,10 +1,11 @@
 package forwarder
 
 import (
-	"github.com/calyptia/cmetrics-go"
-	"reflect"
+	"bytes"
 	"testing"
 	"time"
+
+	"github.com/calyptia/cmetrics-go"
 
 	fluentbit "github.com/calyptia/go-fluent-bit-metrics"
 )
@@ -38,11 +39,26 @@ func Test_fluentBitMetricsToCMetrics(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			fd := &Forwarder{nowFunc: func() time.Time { return now }}
-			encoded, _ := fd.fluentBitMetricsToCMetrics(&tc.args)
-			ctx, _ := cmetrics.NewContextFromMsgPack(encoded)
-			reEncoded, _ := ctx.EncodeMsgPack()
-			if !reflect.DeepEqual(encoded, reEncoded) {
-				t.Errorf("fluentBitMetricsToCMetrics() = %+v, want %+v", string(encoded), string(reEncoded))
+			got, err := fd.fluentBitMetricsToCMetrics(&tc.args)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+
+			ctx, err := cmetrics.NewContextFromMsgPack(got, 0)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+
+			want, err := ctx.EncodeMsgPack()
+			if err != nil {
+				t.Error(err)
+				return
+			}
+
+			if !bytes.Equal(want, got) {
+				t.Errorf("fluentBitMetricsToCMetrics() = %v, want %v", got, want)
 			}
 		})
 	}
