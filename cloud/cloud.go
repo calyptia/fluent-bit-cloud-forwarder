@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strconv"
 
 	"github.com/calyptia/cloud"
 )
@@ -22,102 +21,20 @@ func (e *Error) Error() string {
 }
 
 type Client struct {
-	BaseURL     string
-	HTTPClient  *http.Client
-	AccessToken string
-
-	projectToken string
+	BaseURL      string
+	HTTPClient   *http.Client
+	ProjectToken string
 	agentToken   string
-}
-
-func (c *Client) SetProjectToken(token string) {
-	c.projectToken = token
 }
 
 func (c *Client) SetAgentToken(token string) {
 	c.agentToken = token
 }
 
-func (c *Client) CreateToken(ctx context.Context) (cloud.ProjectToken, error) {
-	var out cloud.ProjectToken
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/api/v1/tokens", nil)
-	if err != nil {
-		return out, fmt.Errorf("could not create request to create token: %w", err)
-	}
-
-	req.Header.Set("Authorization", "Bearer "+c.AccessToken)
-
-	resp, err := c.HTTPClient.Do(req)
-	if err != nil {
-		return out, fmt.Errorf("could not do request to create token: %w", err)
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		e := &Error{}
-		err = json.NewDecoder(resp.Body).Decode(&e)
-		if err != nil {
-			return out, fmt.Errorf("could not json decode create token error response: %w", err)
-		}
-
-		return out, e
-	}
-
-	err = json.NewDecoder(resp.Body).Decode(&out)
-	if err != nil {
-		return out, fmt.Errorf("could not json decode create token response: %w", err)
-	}
-
-	return out, nil
-}
-
-func (c *Client) Tokens(ctx context.Context, last uint64) ([]cloud.ProjectToken, error) {
-	q := url.Values{
-		"last": []string{strconv.FormatUint(last, 10)},
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/api/v1/tokens?"+q.Encode(), nil)
-	if err != nil {
-		return nil, fmt.Errorf("could not create request to tokens: %w", err)
-	}
-
-	req.Header.Set("Authorization", "Bearer "+c.AccessToken)
-
-	resp, err := c.HTTPClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("could not do request to tokens: %w", err)
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		e := &Error{}
-		err = json.NewDecoder(resp.Body).Decode(&e)
-		if err != nil {
-			return nil, fmt.Errorf("could not json decode tokens error response: %w", err)
-		}
-
-		return nil, e
-	}
-
-	var tt []cloud.ProjectToken
-	err = json.NewDecoder(resp.Body).Decode(&tt)
-	if err != nil {
-		return nil, fmt.Errorf("could not json decode tokens response: %w", err)
-	}
-
-	if len(tt) > 0 {
-		c.projectToken = tt[0].Token
-	}
-
-	return tt, nil
-}
-
 func (c *Client) CreateAgent(ctx context.Context, payload cloud.CreateAgentPayload) (cloud.CreatedAgentPayload, error) {
 	var out cloud.CreatedAgentPayload
 
-	if c.projectToken == "" {
+	if c.ProjectToken == "" {
 		return out, errors.New("project token not set yet")
 	}
 
@@ -131,7 +48,7 @@ func (c *Client) CreateAgent(ctx context.Context, payload cloud.CreateAgentPaylo
 		return out, fmt.Errorf("could not create request to create agent: %w", err)
 	}
 
-	req.Header.Set("X-Project-Token", c.projectToken)
+	req.Header.Set("X-Project-Token", c.ProjectToken)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {

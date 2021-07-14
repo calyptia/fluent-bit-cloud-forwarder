@@ -5,6 +5,7 @@
 *.mdb
 *.pdb
 *.sqlite3
+/diskv-data/
 
 ### Go ###
 # Binaries for programs and plugins
