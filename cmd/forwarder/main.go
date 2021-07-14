@@ -51,7 +51,7 @@ func run(ctx context.Context, logger log.Logger, args []string) error {
 	fs.StringVar(&agentURL, "agent", "http://localhost:2020", "Fluent Bit agent URL")
 	fs.DurationVar(&interval, "interval", time.Second*5, "Interval to pull Fluent Bit agent and forward metrics to Cloud")
 	fs.StringVar(&cloudURL, "cloud", "http://localhost:5000", "Calyptia Cloud API URL")
-	fs.StringVar(&projectToken, "project-token", "", "Project token fro Calyptia Cloud fetched from `POST /api/v1/tokens` or from `GET /api/v1/tokens?last=1`")
+	fs.StringVar(&projectToken, "project-token", "", `Project token from Calyptia Cloud fetched from "POST /api/v1/tokens" or from "GET /api/v1/tokens?last=1"`)
 	fs.StringVar(&hostname, "hostname", hostname, "Agent hostname. If empty, a random one will be generated")
 	fs.StringVar(&machineID, "machine-id", machineID, "Machine ID. If empty, a random one will be generated")
 	fs.StringVar(&configFile, "config", configFile, "Fluentbit config file")
