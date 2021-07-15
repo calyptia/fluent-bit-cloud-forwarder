@@ -45,6 +45,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      # Todo, fix dependencies to be fetched from github artifacts.
+      - name: Dependencies
+        run: sudo dpkg -i external/*.deb
       - name: Configure git for private modules
         run: git config --global url."https://${{ secrets.GITHUB_TOKEN }}:x-oauth-basic@github.com/".insteadOf "https://github.com/"
 
