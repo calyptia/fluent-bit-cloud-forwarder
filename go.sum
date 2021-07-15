@@ -110,8 +110,8 @@ github.com/boltdb/bolt v1.3.1/go.mod h1:clJnj/oiGkjum5o1McbSZDSLxVThjynRyGBgiAx2
 github.com/bonitoo-io/go-sql-bigquery v0.3.4-1.4.0/go.mod h1:J4Y6YJm0qTWB9aFziB7cPeSyc6dOZFyJdteSeybVpXQ=
 github.com/c-bata/go-prompt v0.2.2/go.mod h1:VzqtzE2ksDBcdln8G7mk2RX9QyGjH+OVqOCSiVIqS34=
 github.com/cactus/go-statsd-client/statsd v0.0.0-20191106001114-12b4e2b38748/go.mod h1:l/bIBLeOl9eX+wxJAzxS4TveKRtAqlyDpHjhkfO0MEI=
-github.com/calyptia/cloud v0.0.0-20210714035943-66ef22e89b26 h1:h46+aX6nKy6YfJMlEaoOcid9B2fB6deYfNkIpN/pKW4=
-github.com/calyptia/cloud v0.0.0-20210714035943-66ef22e89b26/go.mod h1:eJbD/dxDJO86zgsgrcvWpwcIY5MEzBvNBE0Lr+1ARhM=
+github.com/calyptia/cloud v0.1.0 h1:jwmtUz59jJ5bWc6NqSJGXVcYBHY+t1wQsYdPJGHIXG4=
+github.com/calyptia/cloud v0.1.0/go.mod h1:eJbD/dxDJO86zgsgrcvWpwcIY5MEzBvNBE0Lr+1ARhM=
 github.com/calyptia/cmetrics-go v0.1.0 h1:bCBkidbH0IvNnRxtAtQgHO1A5/hubO+iBPrbXs7FTRg=
 github.com/calyptia/cmetrics-go v0.1.0/go.mod h1:b8QUjjnuFf6MdKOUt3YQ80BF2Y4T/loXcCBPK21P5UI=
 github.com/calyptia/go-fluent-bit-metrics v0.1.0 h1:zmPwTdirRZR3nURNeAVgmDVjYVNxWa0lJ11PBTsCpHM=
