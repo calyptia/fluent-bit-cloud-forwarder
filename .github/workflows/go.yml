@@ -1,5 +1,8 @@
 name: Go
 
+env:
+  GOPRIVATE: "github.com/calyptia/cloud"
+
 on:
   push:
     branches: [main]
@@ -7,13 +10,14 @@ on:
       - "v*"
   pull_request:
     branches: [main]
-env:
-  GOPRIVATE: "github.com/calyptia/cloud"
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      # Todo, fix dependencies to be fetched from github artifacts.
+      - name: Dependencies
+        run: sudo dpkg -i external/*.deb
       - name: Configure git for private modules
         run: git config --global url."https://${{ secrets.PAT_USERNAME}}:${{ secrets.PAT_TOKEN }}@github.com".insteadOf "https://github.com"
       - name: Set up Go
@@ -40,6 +44,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      # Todo, fix dependencies to be fetched from github artifacts.
+      - name: Dependencies
+        run: sudo dpkg -i external/*.deb
       - name: Configure git for private modules
         run: git config --global url."https://${{ secrets.PAT_USERNAME}}:${{ secrets.PAT_TOKEN }}@github.com".insteadOf "https://github.com"
       - name: Set up Go

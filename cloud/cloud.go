@@ -4,133 +4,51 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
-	"time"
+
+	"github.com/calyptia/cloud"
 )
 
-const apiKeyHeader = "X-API-Key"
+type Error struct {
+	Msg string `json:"error"`
+}
+
+func (e *Error) Error() string {
+	return e.Msg
+}
 
 type Client struct {
-	BaseURL    string
-	HTTPClient *http.Client
-	APIKey     string
+	BaseURL      string
+	HTTPClient   *http.Client
+	ProjectToken string
+	agentToken   string
 }
 
-type Errors struct {
-	StatusCode int      `json:"status,omitempty"`
-	Msg        string   `json:"message"`
-	Errs       []string `json:"errors"`
+func (c *Client) SetAgentToken(token string) {
+	c.agentToken = token
 }
 
-func (e *Errors) Error() string {
-	if e.Msg != "" {
-		return e.Msg
+func (c *Client) CreateAgent(ctx context.Context, payload cloud.CreateAgentPayload) (cloud.CreatedAgentPayload, error) {
+	var out cloud.CreatedAgentPayload
+
+	if c.ProjectToken == "" {
+		return out, errors.New("project token not set yet")
 	}
 
-	if len(e.Errs) == 0 {
-		return ""
-	}
-
-	return e.Errs[0]
-}
-
-type CreateAgentInput struct {
-	Name     string        `json:"name"`
-	Metadata AgentMetadata `json:"metadata"`
-	Config   string        `json:"config"`
-}
-
-type UpsertAgentInput struct {
-	Status   string        `json:"status"`
-	Metadata AgentMetadata `json:"metadata"`
-	Config   string        `json:"config"`
-}
-
-type AddMetricsInput struct {
-	Metrics []AddMetricInput `json:"metrics"`
-}
-
-type AddMetricInput struct {
-	Type    MetricType    `json:"type"`
-	Options MetricOpts    `json:"opts"`
-	Labels  []string      `json:"labels"`
-	Values  []MetricValue `json:"values"`
-}
-
-type MetricType int
-
-const (
-	MetricTypeCounter MetricType = iota
-	MetricTypeGauge
-	MetricTypeHistogram
-)
-
-type MetricOpts struct {
-	Namespace string
-	Subsystem string
-	Name      string
-	FQName    string
-}
-
-type MetricValue struct {
-	Timestamp int64   `json:"ts"`
-	Value     float64 `json:"value"`
-	Labels    []int64 `json:"labels"`
-}
-
-func (v MetricValue) TimestampAsTime() time.Time {
-	return time.Unix(0, v.Timestamp)
-}
-
-type Agent struct {
-	ID     uint        `json:"id"`
-	Status AgentStatus `json:"status"`
-	Name   string      `json:"name"`
-	UserID uint        `json:"user_id"`
-	Config string      `json:"config"`
-	AgentMetadata
-}
-
-type AgentMetadata struct {
-	Version string            `json:"version"`
-	Edition string            `json:"edition"`
-	Type    AgentMetadataType `json:"type"`
-	Flags   string            `json:"flags"`
-}
-
-type AgentStatus string
-
-const (
-	AgentStatusNew     AgentStatus = "NEW"
-	AgentStatusRunning AgentStatus = "RUNNING"
-	AgentStatusDeleted AgentStatus = "DELETED"
-	AgentStatusError   AgentStatus = "ERROR"
-)
-
-type AgentMetadataType string
-
-const (
-	AgentMetadataTypeFluentd   AgentMetadataType = "fluentd"
-	AgentMetadataTypeFluentBit AgentMetadataType = "fluentbit"
-)
-
-func (c *Client) CreateAgent(ctx context.Context, in CreateAgentInput) (Agent, error) {
-	var out Agent
-
-	b, err := json.Marshal(in)
+	b, err := json.Marshal(payload)
 	if err != nil {
-		return out, fmt.Errorf("could not json marshal create agent input: %w", err)
+		return out, fmt.Errorf("could not json marshal create agent payload: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/api/v1/agent", bytes.NewReader(b))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/api/v1/agents", bytes.NewReader(b))
 	if err != nil {
 		return out, fmt.Errorf("could not create request to create agent: %w", err)
 	}
 
-	req.Header.Set(apiKeyHeader, c.APIKey)
+	req.Header.Set("X-Project-Token", c.ProjectToken)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
@@ -140,13 +58,13 @@ func (c *Client) CreateAgent(ctx context.Context, in CreateAgentInput) (Agent, e
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		errs := &Errors{StatusCode: resp.StatusCode}
-		err = json.NewDecoder(resp.Body).Decode(&errs)
+		e := &Error{}
+		err = json.NewDecoder(resp.Body).Decode(&e)
 		if err != nil {
 			return out, fmt.Errorf("could not json decode create agent error response: %w", err)
 		}
 
-		return out, errs
+		return out, e
 	}
 
 	err = json.NewDecoder(resp.Body).Decode(&out)
@@ -157,115 +75,78 @@ func (c *Client) CreateAgent(ctx context.Context, in CreateAgentInput) (Agent, e
 	return out, nil
 }
 
-func (c *Client) Agent(ctx context.Context, agentID string) (Agent, error) {
-	var out Agent
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.BaseURL+"/api/v1/agent/"+url.PathEscape(agentID), nil)
-	if err != nil {
-		return out, fmt.Errorf("could not create request to retrieve agent: %w", err)
+func (c *Client) UpdateAgent(ctx context.Context, agentID string, in cloud.UpdateAgentOpts) error {
+	if c.agentToken == "" {
+		return errors.New("agent token not set yet")
 	}
-
-	req.Header.Set(apiKeyHeader, c.APIKey)
-
-	resp, err := c.HTTPClient.Do(req)
-	if err != nil {
-		return out, fmt.Errorf("could not do request to retrieve agent: %w", err)
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		errs := &Errors{StatusCode: resp.StatusCode}
-		err = json.NewDecoder(resp.Body).Decode(&errs)
-		if err != nil {
-			return out, fmt.Errorf("could not json decode agent error response: %w", err)
-		}
-
-		return out, errs
-	}
-
-	err = json.NewDecoder(resp.Body).Decode(&out)
-	if err != nil {
-		return out, fmt.Errorf("could not json decode agent response: %w", err)
-	}
-
-	return out, nil
-}
-
-func (c *Client) UpsertAgent(ctx context.Context, agentID string, in UpsertAgentInput) (Agent, error) {
-	var out Agent
 
 	b, err := json.Marshal(in)
 	if err != nil {
-		return out, fmt.Errorf("could not json marshal upsert agent input: %w", err)
+		return fmt.Errorf("could not json marshal update agent options: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, c.BaseURL+"/api/v1/agent/"+url.PathEscape(agentID), bytes.NewReader(b))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, c.BaseURL+"/api/v1/agents/"+url.PathEscape(agentID), bytes.NewReader(b))
 	if err != nil {
-		return out, fmt.Errorf("could not create request to upsert agent: %w", err)
+		return fmt.Errorf("could not create request to update agent: %w", err)
 	}
 
-	req.Header.Set(apiKeyHeader, c.APIKey)
+	req.Header.Set("X-Agent-Token", c.agentToken)
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return out, fmt.Errorf("could not do request to upsert agent: %w", err)
+		return fmt.Errorf("could not do request to update agent: %w", err)
 	}
 
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		errs := &Errors{StatusCode: resp.StatusCode}
-		err = json.NewDecoder(resp.Body).Decode(&errs)
+		e := &Error{}
+		err = json.NewDecoder(resp.Body).Decode(&e)
 		if err != nil {
-			return out, fmt.Errorf("could not json decode upsert agent error response: %w", err)
+			return fmt.Errorf("could not json decode update agent error response: %w", err)
 		}
 
-		return out, errs
-	}
-
-	err = json.NewDecoder(resp.Body).Decode(&out)
-	if err != nil {
-		return out, fmt.Errorf("could not json decode upsert agent response: %w", err)
-	}
-
-	return out, nil
-}
-
-func (c *Client) AddMetrics(ctx context.Context, agentID string, in AddMetricsInput) error {
-	b, err := json.Marshal(in)
-	if err != nil {
-		return fmt.Errorf("could not json marshal add agent metric input: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/api/v1/agent/"+url.PathEscape(agentID)+"/metric", bytes.NewReader(b))
-	if err != nil {
-		return fmt.Errorf("could not create request to add agent metric: %w", err)
-	}
-
-	req.Header.Set(apiKeyHeader, c.APIKey)
-
-	resp, err := c.HTTPClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("could not do request to add agent metric: %w", err)
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		errs := &Errors{StatusCode: resp.StatusCode}
-		err = json.NewDecoder(resp.Body).Decode(&errs)
-		if err != nil {
-			return fmt.Errorf("could not json decode add agent metric error response: %w", err)
-		}
-
-		return errs
-	}
-
-	_, err = io.Copy(io.Discard, resp.Body)
-	if err != nil {
-		return fmt.Errorf("could not discard add agent metric response: %w", err)
+		return e
 	}
 
 	return nil
+}
+
+func (c *Client) AddAgentMetrics(ctx context.Context, agentID string, msgPackEncoded []byte) (cloud.CreatedAgentMetrics, error) {
+	var out cloud.CreatedAgentMetrics
+
+	if c.agentToken == "" {
+		return out, errors.New("agent token not set yet")
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/api/v1/agents/"+url.PathEscape(agentID)+"/metrics", bytes.NewReader(msgPackEncoded))
+	if err != nil {
+		return out, fmt.Errorf("could not create request to add agent metrics: %w", err)
+	}
+
+	req.Header.Set("X-Agent-Token", c.agentToken)
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return out, fmt.Errorf("could not do request to add agent metrics: %w", err)
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		e := &Error{}
+		err = json.NewDecoder(resp.Body).Decode(&e)
+		if err != nil {
+			return out, fmt.Errorf("could not json decode add agent metrics error response: %w", err)
+		}
+
+		return out, e
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&out)
+	if err != nil {
+		return out, fmt.Errorf("could not json decode add agent metrics response: %w", err)
+	}
+
+	return out, nil
 }
