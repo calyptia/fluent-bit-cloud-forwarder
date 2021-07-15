@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"os/signal"
@@ -39,13 +38,13 @@ func main() {
 
 func run(ctx context.Context, logger log.Logger, args []string) error {
 	var (
-		agentURL     string
-		interval     time.Duration
-		cloudURL     string
-		projectToken string
-		hostname     = os.Getenv("HOSTNAME")
-		machineID, _ = machineid.ID()
-		configFile   string
+		agentURL            string
+		interval            time.Duration
+		cloudURL            string
+		projectToken        string
+		hostname            = os.Getenv("HOSTNAME")
+		machineID, _        = machineid.ID()
+		agentConfigFilepath string
 	)
 	fs := flag.NewFlagSet("forwarder", flag.ExitOnError)
 	fs.StringVar(&agentURL, "agent", "http://localhost:2020", "Fluent Bit agent URL")
@@ -53,8 +52,8 @@ func run(ctx context.Context, logger log.Logger, args []string) error {
 	fs.StringVar(&cloudURL, "cloud", "http://localhost:5000", "Calyptia Cloud API URL")
 	fs.StringVar(&projectToken, "project-token", "", `Project token from Calyptia Cloud fetched from "POST /api/v1/tokens" or from "GET /api/v1/tokens?last=1"`)
 	fs.StringVar(&hostname, "hostname", hostname, "Agent hostname. If empty, a random one will be generated")
-	fs.StringVar(&machineID, "machine-id", machineID, "Machine ID. If empty, a random one will be generated")
-	fs.StringVar(&configFile, "config", configFile, "Fluentbit config file")
+	fs.StringVar(&machineID, "machine-id", machineID, "Agent host machine ID. If empty, a random one will be generated")
+	fs.StringVar(&agentConfigFilepath, "agent-config", agentConfigFilepath, "Fluentbit agent config file")
 	fs.Usage = func() {
 		fmt.Printf("Forwards metrics from Fluent Bit agent to Calyptia Cloud.\nIt stores some persisted data about Cloud registration at %q directory.\n", diskvBasePath)
 		fmt.Println("Flags:")
@@ -87,27 +86,10 @@ func run(ctx context.Context, logger log.Logger, args []string) error {
 	}
 
 	var rawConfig string
-	if configFile != "" {
-		f, err := os.Open(configFile)
-		if err != nil {
-			return fmt.Errorf("could not open %q: %w", configFile, err)
-		}
-
-		defer f.Close()
-
-		b, err := io.ReadAll(f)
-		if err != nil {
-			return fmt.Errorf("could not read config file contents: %w", err)
-		}
-
-		rawConfig = string(b)
-	}
-
-	var rawConfig string
 	if agentConfigFilepath != "" {
 		b, err := os.ReadFile(agentConfigFilepath)
 		if err != nil {
-			return fmt.Errorf("could not open %q: %w", agentConfigFilepath, err)
+			return fmt.Errorf("could not read file %q: %w", agentConfigFilepath, err)
 		}
 
 		rawConfig = string(b)
