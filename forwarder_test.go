@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/calyptia/cmetrics-go"
+	cmetrics "github.com/calyptia/cmetrics-go"
 
 	fluentbit "github.com/calyptia/go-fluent-bit-metrics"
 )

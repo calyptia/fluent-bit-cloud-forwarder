@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/calyptia/cloud"
-	"github.com/calyptia/cmetrics-go"
+	cmetrics "github.com/calyptia/cmetrics-go"
 	fluentbit "github.com/calyptia/go-fluent-bit-metrics"
 	"github.com/go-kit/log"
 )
