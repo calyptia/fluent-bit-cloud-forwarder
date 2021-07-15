@@ -114,7 +114,10 @@ func (fd *Forwarder) Forward(ctx context.Context) error {
 			return fmt.Errorf("could not encode store payload: %w", err)
 		}
 
-		fd.Store.Write(fd.MachineID, buff.Bytes())
+		err = fd.Store.Write(fd.MachineID, buff.Bytes())
+		if err != nil {
+			return fmt.Errorf("could not write to store: %w", err)
+		}
 	}
 
 	_ = fd.Logger.Log(
