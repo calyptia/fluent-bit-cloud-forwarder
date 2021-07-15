@@ -103,6 +103,16 @@ func run(ctx context.Context, logger log.Logger, args []string) error {
 		rawConfig = string(b)
 	}
 
+	var rawConfig string
+	if agentConfigFilepath != "" {
+		b, err := os.ReadFile(agentConfigFilepath)
+		if err != nil {
+			return fmt.Errorf("could not open %q: %w", agentConfigFilepath, err)
+		}
+
+		rawConfig = string(b)
+	}
+
 	kv := diskv.New(diskv.Options{
 		BasePath: diskvBasePath,
 	})

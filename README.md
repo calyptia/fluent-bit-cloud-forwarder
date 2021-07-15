@@ -2,6 +2,10 @@
 
 Forwards metrics from Fluent Bit to Calyptia Cloud.
 
+## Releases
+
+[Check the releases page](https://github.com/calyptia/fluent-bit-cloud-forwarder/releases).
+
 ## Build instrutions
 
 ```
