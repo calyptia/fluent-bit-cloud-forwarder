@@ -9,6 +9,9 @@ Forwards metrics from Fluent Bit to Calyptia Cloud.
 ## Build instrutions
 
 ```
+sudo dpkg -i external/*.deb
+```
+```
 go build ./cmd/forwarder
 ```
 
