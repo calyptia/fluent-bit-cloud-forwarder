@@ -12,6 +12,9 @@ Forwards metrics from Fluent Bit to Calyptia Cloud.
 sudo dpkg -i external/*.deb
 ```
 ```
+go env -w GOPRIVATE=github.com/calyptia/cloud
+```
+```
 go build ./cmd/forwarder
 ```
 
