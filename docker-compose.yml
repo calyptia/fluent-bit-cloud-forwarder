@@ -1,0 +1,45 @@
+version: '3.3'
+
+services:
+
+  forwarder:
+    build:
+      context: .
+      args:
+        - GITHUB_PERSONAL_ACCESS_TOKEN_NAME=${GITHUB_PERSONAL_ACCESS_TOKEN_NAME}
+        - GITHUB_PERSONAL_ACCESS_TOKEN=${GITHUB_PERSONAL_ACCESS_TOKEN}
+    container_name: forwarder
+    networks:
+      - exporter-network
+    volumes:
+      - forwarder-data:/data
+      - ./fluent-bit.conf:/fluent-bit.conf
+    depends_on:
+      - fluentbit
+    environment:
+      - PROJECT_TOKEN
+      - CLOUD_URL
+      - AGENT_URL
+      - AGENT_PULL_INTERVAL
+      - AGENT_CONFIG_FILE
+      - AGENT_HOSTNAME
+      - AGENT_MACHINE_ID
+
+  fluentbit:
+    image: fluentbitdev/fluent-bit:x86_64-master
+    container_name: fluentbit
+    ports:
+      - 2020:2020
+    networks:
+      - exporter-network
+    volumes:
+      - fluentbit-data:/data
+      - ./fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf
+
+volumes:
+  fluentbit-data:
+  forwarder-data:
+
+networks:
+  exporter-network:
+    driver: bridge

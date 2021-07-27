@@ -20,7 +20,7 @@ import (
 	"github.com/peterbourgon/diskv"
 )
 
-const diskvBasePath = "diskv-data"
+const dataPath = "data"
 
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
@@ -38,24 +38,25 @@ func main() {
 
 func run(ctx context.Context, logger log.Logger, args []string) error {
 	var (
-		agentURL            string
-		interval            time.Duration
-		cloudURL            string
-		projectToken        string
-		hostname            = os.Getenv("HOSTNAME")
-		machineID, _        = machineid.ID()
-		agentConfigFilepath string
+		cloudURL             = env("CLOUD_URL", "https://cloud-api-dev.calyptia.com/")
+		projectToken         = os.Getenv("PROJECT_TOKEN")
+		agentURL             = env("AGENT_URL", "http://localhost:2020")
+		agentPullInterval, _ = time.ParseDuration(env("AGENT_PULL_INTERVAL", (time.Second * 5).String()))
+		agentHostname        = os.Getenv("AGENT_HOSTNAME")
+		agentMachineID       = env("AGENT_MACHINE_ID", func() string { s, _ := machineid.ID(); return s }())
+		agentConfigFile      = env("AGENT_CONFIG_FILE", "fluent-bit.conf")
 	)
+
 	fs := flag.NewFlagSet("forwarder", flag.ExitOnError)
-	fs.StringVar(&agentURL, "agent", "http://localhost:2020", "Fluent Bit agent URL")
-	fs.DurationVar(&interval, "interval", time.Second*5, "Interval to pull Fluent Bit agent and forward metrics to Cloud")
-	fs.StringVar(&cloudURL, "cloud", "http://localhost:5000", "Calyptia Cloud API URL")
-	fs.StringVar(&projectToken, "project-token", "", `Project token from Calyptia Cloud fetched from "POST /api/v1/tokens" or from "GET /api/v1/tokens?last=1"`)
-	fs.StringVar(&hostname, "hostname", hostname, "Agent hostname. If empty, a random one will be generated")
-	fs.StringVar(&machineID, "machine-id", machineID, "Agent host machine ID. If empty, a random one will be generated")
-	fs.StringVar(&agentConfigFilepath, "agent-config", agentConfigFilepath, "Fluentbit agent config file")
+	fs.StringVar(&cloudURL, "cloud-url", cloudURL, "Calyptia Cloud API URL")
+	fs.StringVar(&projectToken, "project-token", projectToken, `Project token from Calyptia Cloud fetched from "POST /api/v1/tokens" or from "GET /api/v1/tokens?last=1"`)
+	fs.StringVar(&agentURL, "agent-url", agentURL, "Fluent Bit agent URL")
+	fs.DurationVar(&agentPullInterval, "agent-pull-interval", agentPullInterval, "Interval to pull Fluent Bit agent and forward metrics to Cloud")
+	fs.StringVar(&agentConfigFile, "agent-config-file", agentConfigFile, "Fluentbit agent config file")
+	fs.StringVar(&agentHostname, "agent-hostname", agentHostname, "Agent hostname. If empty, a random one will be generated")
+	fs.StringVar(&agentMachineID, "agent-machine-id", agentMachineID, "Agent host machine ID. If empty, a random one will be generated")
 	fs.Usage = func() {
-		fmt.Printf("Forwards metrics from Fluent Bit agent to Calyptia Cloud.\nIt stores some persisted data about Cloud registration at %q directory.\n", diskvBasePath)
+		fmt.Printf("Forwards metrics from Fluent Bit agent to Calyptia Cloud.\nIt stores some persisted data about Cloud registration at %q directory.\n", dataPath)
 		fmt.Println("Flags:")
 		fs.PrintDefaults()
 	}
@@ -65,46 +66,46 @@ func run(ctx context.Context, logger log.Logger, args []string) error {
 		return fmt.Errorf("could not parse flags: %w", err)
 	}
 
-	if hostname == "" {
+	if agentHostname == "" {
 		rng, err := codename.DefaultRNG()
 		if err != nil {
 			return fmt.Errorf("could not generate hostname random seed: %w", err)
 		}
 
-		hostname = codename.Generate(rng, 4)
-		_ = logger.Log("generated_hostname", hostname)
+		agentHostname = codename.Generate(rng, 4)
+		_ = logger.Log("generated_hostname", agentHostname)
 	}
 
-	if machineID == "" {
+	if agentMachineID == "" {
 		v, err := uuid.NewRandom()
 		if err != nil {
 			return fmt.Errorf("could not generate random machine ID: %w", err)
 		}
 
-		machineID = v.String()
-		_ = logger.Log("generated_machine_id", machineID)
+		agentMachineID = v.String()
+		_ = logger.Log("generated_machine_id", agentMachineID)
 	}
 
 	var rawConfig string
-	if agentConfigFilepath != "" {
-		b, err := os.ReadFile(agentConfigFilepath)
+	if agentConfigFile != "" {
+		b, err := os.ReadFile(agentConfigFile)
 		if err != nil {
-			return fmt.Errorf("could not read file %q: %w", agentConfigFilepath, err)
+			return fmt.Errorf("could not read file %q: %w", agentConfigFile, err)
 		}
 
 		rawConfig = string(b)
 	}
 
 	kv := diskv.New(diskv.Options{
-		BasePath: diskvBasePath,
+		BasePath: dataPath,
 	})
 
 	fd := forwarder.Forwarder{
-		Hostname:  hostname,
-		MachineID: machineID,
+		Hostname:  agentHostname,
+		MachineID: agentMachineID,
 		RawConfig: rawConfig,
 		Store:     kv,
-		Interval:  interval,
+		Interval:  agentPullInterval,
 		FluentBitClient: &fluentbit.Client{
 			HTTPClient: http.DefaultClient,
 			BaseURL:    agentURL,
@@ -124,4 +125,13 @@ func run(ctx context.Context, logger log.Logger, args []string) error {
 	}()
 
 	return fd.Forward(ctx)
+}
+
+func env(key, fallback string) string {
+	v, ok := os.LookupEnv(key)
+	if !ok {
+		return fallback
+	}
+
+	return v
 }
