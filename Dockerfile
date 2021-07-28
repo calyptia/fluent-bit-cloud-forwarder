@@ -19,6 +19,6 @@ RUN go build -ldflags "-linkmode external -extldflags -static" -o /forwarder ./c
 FROM scratch
 
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=build /forwarder /forwarder
+COPY --from=build /forwarder /fluent-bit-cloud-forwarder
 
-ENTRYPOINT [ "/forwarder" ]
+ENTRYPOINT [ "/fluent-bit-cloud-forwarder" ]

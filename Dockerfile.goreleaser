@@ -1,0 +1,17 @@
+FROM alpine:latest as build
+
+RUN apk update \
+    && apk upgrade \
+    && apk add --no-cache ca-certificates \
+    && update-ca-certificates 2>/dev/null || true \
+    && rm -rf /var/cache/apk/*
+
+COPY fluent-bit-cloud-forwarder /
+
+FROM scratch
+
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=build /fluent-bit-cloud-forwarder /fluent-bit-cloud-forwarder
+
+EXPOSE 5000
+ENTRYPOINT [ "/fluent-bit-cloud-forwarder" ]
