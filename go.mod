@@ -3,7 +3,6 @@ module github.com/calyptia/fluent-bit-cloud-forwarder
 go 1.16
 
 require (
-	github.com/calyptia/cloud v0.1.0
 	github.com/calyptia/cmetrics-go v0.1.0
 	github.com/calyptia/go-fluent-bit-metrics v0.1.0
 	github.com/denisbrodbeck/machineid v1.0.1

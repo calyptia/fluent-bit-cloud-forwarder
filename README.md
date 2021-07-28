@@ -46,17 +46,14 @@ Flags:
 
 ## Docker
 
-To run it with Docker, first go to github and create a new personal access token with private repo access.<br>
-https://github.com/settings/tokens
-
-Then go to https://config-viewer-ui-dev.herokuapp.com and create a new project token.
+To run it with Docker, first go to https://config-viewer-ui-dev.herokuapp.com and create a new project token.
 
 Copy `.env.example` into a new file `.env`.
 ```
 cp .env.example .env
 ```
 
-Edit this `.env` file and add your GitHub personal access token and your Calyptia Cloud project token.
+Edit this `.env` file and add your Calyptia Cloud project token.
 
 Then just:
 ```

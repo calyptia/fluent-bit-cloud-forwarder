@@ -6,7 +6,6 @@ import (
 	"time"
 
 	cmetrics "github.com/calyptia/cmetrics-go"
-
 	fluentbit "github.com/calyptia/go-fluent-bit-metrics"
 )
 

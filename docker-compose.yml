@@ -3,11 +3,7 @@ version: '3.3'
 services:
 
   forwarder:
-    build:
-      context: .
-      args:
-        - GITHUB_PERSONAL_ACCESS_TOKEN_NAME=${GITHUB_PERSONAL_ACCESS_TOKEN_NAME}
-        - GITHUB_PERSONAL_ACCESS_TOKEN=${GITHUB_PERSONAL_ACCESS_TOKEN}
+    build: .
     container_name: forwarder
     networks:
       - exporter-network

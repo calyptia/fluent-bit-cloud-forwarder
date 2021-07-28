@@ -1,8 +1,5 @@
 name: Go
 
-env:
-  GOPRIVATE: "github.com/calyptia/cloud"
-
 on:
   push:
     branches: [main]
@@ -18,8 +15,6 @@ jobs:
       # Todo, fix dependencies to be fetched from github artifacts.
       - name: Dependencies
         run: sudo dpkg -i external/*.deb
-      - name: Configure git for private modules
-        run: git config --global url."https://${{ secrets.PAT_USERNAME}}:${{ secrets.PAT_TOKEN }}@github.com".insteadOf "https://github.com"
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
@@ -32,8 +27,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Configure git for private modules
-        run: git config --global url."https://${{ secrets.PAT_USERNAME}}:${{ secrets.PAT_TOKEN }}@github.com".insteadOf "https://github.com"
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v2
         with:
@@ -47,8 +40,6 @@ jobs:
       # Todo, fix dependencies to be fetched from github artifacts.
       - name: Dependencies
         run: sudo dpkg -i external/*.deb
-      - name: Configure git for private modules
-        run: git config --global url."https://${{ secrets.PAT_USERNAME}}:${{ secrets.PAT_TOKEN }}@github.com".insteadOf "https://github.com"
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
