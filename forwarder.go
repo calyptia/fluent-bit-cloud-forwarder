@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/calyptia/cloud"
 	cmetrics "github.com/calyptia/cmetrics-go"
+	"github.com/calyptia/fluent-bit-cloud-forwarder/cloud"
 	fluentbit "github.com/calyptia/go-fluent-bit-metrics"
 	"github.com/go-kit/log"
 )

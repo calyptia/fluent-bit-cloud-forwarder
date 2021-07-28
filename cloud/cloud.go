@@ -8,9 +8,62 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-
-	"github.com/calyptia/cloud"
+	"time"
 )
+
+type CreateAgentPayload struct {
+	Name      string       `json:"name"`
+	MachineID string       `json:"machineID"`
+	Type      AgentType    `json:"type"`
+	Version   string       `json:"version"`
+	Edition   AgentEdition `json:"edition"`
+	Flags     []string     `json:"flags"`
+	RawConfig string       `json:"rawConfig"`
+}
+
+type AgentType string
+
+const (
+	AgentTypeFluentBit AgentType = "fluentbit"
+	AgentTypeFluentd   AgentType = "fluentd"
+)
+
+var AgentTypeMap = map[string]AgentType{
+	string(AgentTypeFluentBit): AgentTypeFluentBit,
+	string(AgentTypeFluentd):   AgentTypeFluentd,
+}
+
+type AgentEdition string
+
+const (
+	AgentEditionCommunity  AgentEdition = "community"
+	AgentEditionEnterprise AgentEdition = "enterprise"
+)
+
+var AgentEditionMap = map[string]AgentEdition{
+	string(AgentEditionCommunity):  AgentEditionCommunity,
+	string(AgentEditionEnterprise): AgentEditionEnterprise,
+}
+
+type CreatedAgentPayload struct {
+	ID         string    `json:"id"`
+	SigningKey []byte    `json:"-"`
+	Token      string    `json:"token"`
+	Name       string    `json:"name"`
+	CreatedAt  time.Time `json:"createdAt"`
+}
+
+type UpdateAgentOpts struct {
+	Name      *string       `json:"name"`
+	Version   *string       `json:"version"`
+	Edition   *AgentEdition `json:"edition"`
+	Flags     *[]string     `json:"flags"`
+	RawConfig *string       `json:"rawConfig"`
+}
+
+type CreatedAgentMetrics struct {
+	Total int `json:"total_inserted"`
+}
 
 type Error struct {
 	Msg string `json:"error"`
@@ -31,8 +84,8 @@ func (c *Client) SetAgentToken(token string) {
 	c.agentToken = token
 }
 
-func (c *Client) CreateAgent(ctx context.Context, payload cloud.CreateAgentPayload) (cloud.CreatedAgentPayload, error) {
-	var out cloud.CreatedAgentPayload
+func (c *Client) CreateAgent(ctx context.Context, payload CreateAgentPayload) (CreatedAgentPayload, error) {
+	var out CreatedAgentPayload
 
 	if c.ProjectToken == "" {
 		return out, errors.New("project token not set yet")
@@ -75,7 +128,7 @@ func (c *Client) CreateAgent(ctx context.Context, payload cloud.CreateAgentPaylo
 	return out, nil
 }
 
-func (c *Client) UpdateAgent(ctx context.Context, agentID string, in cloud.UpdateAgentOpts) error {
+func (c *Client) UpdateAgent(ctx context.Context, agentID string, in UpdateAgentOpts) error {
 	if c.agentToken == "" {
 		return errors.New("agent token not set yet")
 	}
@@ -112,8 +165,8 @@ func (c *Client) UpdateAgent(ctx context.Context, agentID string, in cloud.Updat
 	return nil
 }
 
-func (c *Client) AddAgentMetrics(ctx context.Context, agentID string, msgPackEncoded []byte) (cloud.CreatedAgentMetrics, error) {
-	var out cloud.CreatedAgentMetrics
+func (c *Client) AddAgentMetrics(ctx context.Context, agentID string, msgPackEncoded []byte) (CreatedAgentMetrics, error) {
+	var out CreatedAgentMetrics
 
 	if c.agentToken == "" {
 		return out, errors.New("agent token not set yet")

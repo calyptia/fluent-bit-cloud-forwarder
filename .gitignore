@@ -100,3 +100,6 @@ $RECYCLE.BIN/
 
 ### Binary
 /forwarder
+
+### Envirionment variables
+.env
