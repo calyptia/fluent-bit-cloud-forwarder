@@ -38,7 +38,7 @@ Flags:
   -cloud-url string
         Calyptia Cloud API URL (default "https://cloud-api-dev.calyptia.com/")
   -project-token string
-        Project token from Calyptia Cloud fetched from "POST /api/v1/tokens" or from "GET /api/v1/tokens?last=1"
+        Project token from Calyptia Cloud fetched from "POST /v1/tokens" or from "GET /v1/tokens?last=1"
 ```
 
 ## Docker
