@@ -96,7 +96,7 @@ func (c *Client) CreateAgent(ctx context.Context, payload CreateAgentPayload) (C
 		return out, fmt.Errorf("could not json marshal create agent payload: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/api/v1/agents", bytes.NewReader(b))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/v1/agents", bytes.NewReader(b))
 	if err != nil {
 		return out, fmt.Errorf("could not create request to create agent: %w", err)
 	}
@@ -138,7 +138,7 @@ func (c *Client) UpdateAgent(ctx context.Context, agentID string, in UpdateAgent
 		return fmt.Errorf("could not json marshal update agent options: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, c.BaseURL+"/api/v1/agents/"+url.PathEscape(agentID), bytes.NewReader(b))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, c.BaseURL+"/v1/agents/"+url.PathEscape(agentID), bytes.NewReader(b))
 	if err != nil {
 		return fmt.Errorf("could not create request to update agent: %w", err)
 	}
@@ -172,7 +172,7 @@ func (c *Client) AddAgentMetrics(ctx context.Context, agentID string, msgPackEnc
 		return out, errors.New("agent token not set yet")
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/api/v1/agents/"+url.PathEscape(agentID)+"/metrics", bytes.NewReader(msgPackEncoded))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/v1/agents/"+url.PathEscape(agentID)+"/metrics", bytes.NewReader(msgPackEncoded))
 	if err != nil {
 		return out, fmt.Errorf("could not create request to add agent metrics: %w", err)
 	}

@@ -49,7 +49,7 @@ func run(ctx context.Context, logger log.Logger, args []string) error {
 
 	fs := flag.NewFlagSet("forwarder", flag.ExitOnError)
 	fs.StringVar(&cloudURL, "cloud-url", cloudURL, "Calyptia Cloud API URL")
-	fs.StringVar(&projectToken, "project-token", projectToken, `Project token from Calyptia Cloud fetched from "POST /api/v1/tokens" or from "GET /api/v1/tokens?last=1"`)
+	fs.StringVar(&projectToken, "project-token", projectToken, `Project token from Calyptia Cloud fetched from "POST /v1/tokens" or from "GET /v1/tokens?last=1"`)
 	fs.StringVar(&agentURL, "agent-url", agentURL, "Fluent Bit agent URL")
 	fs.DurationVar(&agentPullInterval, "agent-pull-interval", agentPullInterval, "Interval to pull Fluent Bit agent and forward metrics to Cloud")
 	fs.StringVar(&agentConfigFile, "agent-config-file", agentConfigFile, "Fluentbit agent config file")
