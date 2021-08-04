@@ -38,6 +38,7 @@ type Store interface {
 type FluentBitClient interface {
 	BuildInfo(ctx context.Context) (fluentbit.BuildInfo, error)
 	Metrics(ctx context.Context) (fluentbit.Metrics, error)
+	StorageMetrics(ctx context.Context) (fluentbit.StorageMetrics, error)
 }
 
 type CloudClient interface {
@@ -148,7 +149,12 @@ loop:
 					return
 				}
 
-				msgPackEncoded, err := fd.fluentBitMetricsToCMetrics(&metrics)
+				storageMetrics, err := fd.FluentBitClient.StorageMetrics(ctx)
+				if err != nil {
+					fd.errChan <- fmt.Errorf("could not fetch fluent bit storage metrics: %w", err)
+				}
+
+				msgPackEncoded, err := fd.fluentBitMetricsToCMetrics(&metrics, &storageMetrics)
 				if err != nil {
 					fd.errChan <- fmt.Errorf("could not transform fluentbit metrics into cmetrics msgpack")
 				}
@@ -164,7 +170,7 @@ loop:
 	return nil
 }
 
-func (fd *Forwarder) fluentBitMetricsToCMetrics(metrics *fluentbit.Metrics) ([]byte, error) {
+func (fd *Forwarder) fluentBitMetricsToCMetrics(metrics *fluentbit.Metrics, storageMetrics *fluentbit.StorageMetrics) ([]byte, error) {
 	if fd.nowFunc == nil {
 		fd.nowFunc = time.Now
 	}
@@ -177,6 +183,97 @@ func (fd *Forwarder) fluentBitMetricsToCMetrics(metrics *fluentbit.Metrics) ([]b
 	}
 
 	defer metricsContext.Destroy()
+
+	// Storage metrics
+	//TotalChunks  uint64 `json:"total_chunks"`
+	//MemChunks    uint64 `json:"mem_chunks"`
+	//FsChunks     uint64 `json:"fs_chunks"`
+	//FsChunksUp   uint64 `json:"fs_chunks_up"`
+	//FsChunksDown uint64 `json:"fs_chunks_down"`
+
+	counter, err := metricsContext.CounterCreate("fluentbit", "storage", "total_chunks", "total_chunks", []string{"plugin"})
+	if err != nil {
+		return nil, err
+	}
+	err = counter.Set(ts, float64(storageMetrics.StorageLayer.Chunks.TotalChunks), []string{"chunks"})
+	if err != nil {
+		return nil, err
+	}
+
+	counter, err = metricsContext.CounterCreate("fluentbit", "storage", "mem_chunks", "mem_chunks", []string{"plugin"})
+	if err != nil {
+		return nil, err
+	}
+	err = counter.Set(ts, float64(storageMetrics.StorageLayer.Chunks.MemChunks), []string{"chunks"})
+	if err != nil {
+		return nil, err
+	}
+
+	counter, err = metricsContext.CounterCreate("fluentbit", "storage", "fs_chunks", "fs_chunks", []string{"plugin"})
+	if err != nil {
+		return nil, err
+	}
+	err = counter.Set(ts, float64(storageMetrics.StorageLayer.Chunks.FsChunks), []string{"chunks"})
+	if err != nil {
+		return nil, err
+	}
+
+	counter, err = metricsContext.CounterCreate("fluentbit", "storage", "fs_chunks_up", "fs_chunks_up", []string{"plugin"})
+	if err != nil {
+		return nil, err
+	}
+	err = counter.Set(ts, float64(storageMetrics.StorageLayer.Chunks.FsChunksUp), []string{"chunks"})
+	if err != nil {
+		return nil, err
+	}
+
+	counter, err = metricsContext.CounterCreate("fluentbit", "storage", "fs_chunks_down", "fs_chunks_down", []string{"plugin"})
+	if err != nil {
+		return nil, err
+	}
+	err = counter.Set(ts, float64(storageMetrics.StorageLayer.Chunks.FsChunksDown), []string{"chunks"})
+	if err != nil {
+		return nil, err
+	}
+
+	for pluginName, metric := range storageMetrics.InputChunks {
+		counter, err := metricsContext.CounterCreate("fluentbit", "storage", "total", "total", []string{"plugin"})
+		if err != nil {
+			return nil, err
+		}
+		err = counter.Set(ts, float64(metric.Chunks.Total), []string{pluginName})
+		if err != nil {
+			return nil, err
+		}
+		counter, err = metricsContext.CounterCreate("fluentbit", "storage", "up", "up", []string{"plugin"})
+		if err != nil {
+			return nil, err
+		}
+		err = counter.Set(ts, float64(metric.Chunks.Up), []string{pluginName})
+		if err != nil {
+			return nil, err
+		}
+		counter, err = metricsContext.CounterCreate("fluentbit", "storage", "down", "down", []string{"plugin"})
+		if err != nil {
+			return nil, err
+		}
+		err = counter.Set(ts, float64(metric.Chunks.Down), []string{pluginName})
+		if err != nil {
+			return nil, err
+		}
+		counter, err = metricsContext.CounterCreate("fluentbit", "storage", "busy", "busy", []string{"plugin"})
+		if err != nil {
+			return nil, err
+		}
+		err = counter.Set(ts, float64(metric.Chunks.Busy), []string{pluginName})
+		if err != nil {
+			return nil, err
+		}
+		counter, err = metricsContext.CounterCreate("fluentbit", "storage", "busy_size", "busy_size", []string{"plugin"})
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	for metricName, metric := range metrics.Input {
 		counter, err := metricsContext.CounterCreate("fluentbit", "input", "records", "records", []string{"plugin"})
